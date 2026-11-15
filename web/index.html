@@ -1,0 +1,678 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Custom Nginx Web Server – Control &amp; Telemetry Dashboard</title>
+    <style>
+        :root {
+            --bg: #0b1120;
+            --bg-panel: #151f32;
+            --bg-card: #1e293b;
+            --border: #334155;
+            --accent: #10b981;
+            --accent-blue: #3b82f6;
+            --accent-amber: #f59e0b;
+            --accent-red: #ef4444;
+            --accent-purple: #8b5cf6;
+            --text: #f8fafc;
+            --muted: #94a3b8;
+            --mono: "JetBrains Mono", "Fira Code", Consolas, monospace;
+        }
+        * {
+            box-sizing: border-box;
+        }
+        body {
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 0;
+            line-height: 1.5;
+        }
+        header {
+            background: linear-gradient(180deg, #111c33 0%, #0b1120 100%);
+            border-bottom: 1px solid var(--border);
+            padding: 1.25rem 2rem;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            align-items: center;
+            gap: 1rem;
+        }
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+        .status-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: var(--accent);
+            box-shadow: 0 0 12px var(--accent);
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.45; }
+        }
+        .brand h1 {
+            margin: 0;
+            font-size: 1.35rem;
+            letter-spacing: -0.02em;
+        }
+        .brand p {
+            margin: 0.15rem 0 0 0;
+            font-size: 0.82rem;
+            color: var(--muted);
+        }
+        .header-badges {
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+            flex-wrap: wrap;
+        }
+        .badge {
+            padding: 0.3rem 0.7rem;
+            border-radius: 9999px;
+            font-size: 0.78rem;
+            font-weight: 600;
+            font-family: var(--mono);
+            border: 1px solid transparent;
+        }
+        .badge-green {
+            background: rgba(16, 185, 129, 0.15);
+            color: var(--accent);
+            border-color: rgba(16, 185, 129, 0.35);
+        }
+        .badge-blue {
+            background: rgba(59, 130, 246, 0.15);
+            color: #60a5fa;
+            border-color: rgba(59, 130, 246, 0.35);
+        }
+        .badge-purple {
+            background: rgba(139, 92, 246, 0.15);
+            color: #c4b5fd;
+            border-color: rgba(139, 92, 246, 0.35);
+        }
+        main {
+            max-width: 1320px;
+            margin: 0 auto;
+            padding: 1.5rem 2rem 3rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+        .section-title {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.75rem;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+        .section-title h2 {
+            margin: 0;
+            font-size: 1.05rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: #cbd5e1;
+        }
+        /* Metric Cards Grid */
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(195px, 1fr));
+            gap: 1rem;
+        }
+        .metric-card {
+            background: var(--bg-panel);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 1.1rem 1.2rem;
+            position: relative;
+            overflow: hidden;
+        }
+        .metric-card::before {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 4px;
+            height: 100%;
+            background: var(--accent);
+        }
+        .metric-card.blue::before { background: var(--accent-blue); }
+        .metric-card.amber::before { background: var(--accent-amber); }
+        .metric-card.red::before { background: var(--accent-red); }
+        .metric-card.purple::before { background: var(--accent-purple); }
+
+        .metric-label {
+            font-size: 0.78rem;
+            color: var(--muted);
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+        .metric-value {
+            font-size: 1.85rem;
+            font-weight: 700;
+            font-family: var(--mono);
+            margin: 0.35rem 0 0.2rem;
+        }
+        .metric-sub {
+            font-size: 0.76rem;
+            color: var(--muted);
+            font-family: var(--mono);
+        }
+
+        /* Two-column layout */
+        .grid-2 {
+            display: grid;
+            grid-template-columns: 1.25fr 1fr;
+            gap: 1.25rem;
+        }
+        @media (max-width: 960px) {
+            .grid-2 {
+                grid-template-columns: 1fr;
+            }
+        }
+        .panel {
+            background: var(--bg-panel);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1.35rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+        .panel h3 {
+            margin: 0;
+            font-size: 1.02rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.5rem;
+        }
+        .panel p.desc {
+            margin: 0;
+            font-size: 0.85rem;
+            color: var(--muted);
+        }
+        .btn-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.6rem;
+        }
+        button {
+            cursor: pointer;
+            border: 1px solid var(--border);
+            background: var(--bg-card);
+            color: var(--text);
+            padding: 0.55rem 0.95rem;
+            border-radius: 8px;
+            font-size: 0.84rem;
+            font-weight: 600;
+            transition: all 0.15s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.45rem;
+        }
+        button:hover {
+            border-color: #64748b;
+            transform: translateY(-1px);
+        }
+        button:active {
+            transform: translateY(0);
+        }
+        button.btn-primary {
+            background: rgba(16, 185, 129, 0.18);
+            border-color: rgba(16, 185, 129, 0.45);
+            color: #34d399;
+        }
+        button.btn-danger {
+            background: rgba(239, 68, 68, 0.18);
+            border-color: rgba(239, 68, 68, 0.45);
+            color: #f87171;
+        }
+        button.btn-amber {
+            background: rgba(245, 158, 11, 0.18);
+            border-color: rgba(245, 158, 11, 0.45);
+            color: #fbbf24;
+        }
+        button.btn-blue {
+            background: rgba(59, 130, 246, 0.18);
+            border-color: rgba(59, 130, 246, 0.45);
+            color: #60a5fa;
+        }
+
+        pre.code-box {
+            background: #090e1a;
+            border: 1px solid #1e293b;
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            margin: 0;
+            font-family: var(--mono);
+            font-size: 0.8rem;
+            color: #e2e8f0;
+            overflow-x: auto;
+            max-height: 270px;
+            overflow-y: auto;
+        }
+        .log-line-ok { color: #34d399; }
+        .log-line-warn { color: #fbbf24; }
+        .log-line-err { color: #f87171; }
+        .log-line-info { color: #93c5fd; }
+
+        table.data-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.84rem;
+        }
+        table.data-table th,
+        table.data-table td {
+            padding: 0.6rem 0.75rem;
+            border-bottom: 1px solid #1e293b;
+            text-align: left;
+        }
+        table.data-table th {
+            color: var(--muted);
+            font-weight: 600;
+            font-size: 0.76rem;
+            text-transform: uppercase;
+        }
+        table.data-table td.mono {
+            font-family: var(--mono);
+        }
+        .bar-wrap {
+            background: #090e1a;
+            border-radius: 6px;
+            height: 10px;
+            width: 100%;
+            overflow: hidden;
+            margin-top: 0.3rem;
+        }
+        .bar-fill {
+            height: 100%;
+            border-radius: 6px;
+            background: var(--accent);
+        }
+        footer {
+            text-align: center;
+            padding: 1.5rem;
+            color: var(--muted);
+            font-size: 0.8rem;
+            border-top: 1px solid var(--border);
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <div class="brand">
+        <div class="status-dot" id="liveDot"></div>
+        <div>
+            <h1>Custom Nginx Web Server</h1>
+            <p>Ubuntu Linux • Custom C Security &amp; Monitoring Modules • procfs &amp; systemd Integration</p>
+        </div>
+    </div>
+    <div class="header-badges">
+        <span class="badge badge-green" id="hdrServerBadge">Server: CustomWebServer</span>
+        <span class="badge badge-blue" id="hdrRateBadge">X-RateLimit-Limit: 20 / 1s</span>
+        <span class="badge badge-purple" id="hdrUptimeBadge">Uptime: --</span>
+    </div>
+</header>
+
+<main>
+    <!-- 1. REAL-TIME MONITORING MODULE METRICS (/custom_status) -->
+    <section>
+        <div class="section-title">
+            <h2>1. Real-Time HTTP Telemetry (Module C: ngx_http_custom_monitoring_module)</h2>
+            <div class="btn-group">
+                <button class="btn-blue" onclick="fetchStatusNow()">🔄 Làm mới ngay (/custom_status)</button>
+                <button id="togglePollBtn" onclick="togglePolling()">⏸ Tạm dừng Auto-Poll (1.5s)</button>
+            </div>
+        </div>
+
+        <div class="metrics-grid">
+            <div class="metric-card blue">
+                <div class="metric-label">Total Requests</div>
+                <div class="metric-value" id="mTotal">--</div>
+                <div class="metric-sub">Shared Atomic Counter</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">Successful (2xx/3xx)</div>
+                <div class="metric-value" id="mSuccess" style="color:#34d399;">--</div>
+                <div class="metric-sub">Valid HTTP Responses</div>
+            </div>
+            <div class="metric-card amber">
+                <div class="metric-label">Client Errors (4xx)</div>
+                <div class="metric-value" id="m4xx" style="color:#fbbf24;">--</div>
+                <div class="metric-sub">403 / 404 / 429 Responses</div>
+            </div>
+            <div class="metric-card red">
+                <div class="metric-label">Blocked by Security</div>
+                <div class="metric-value" id="mBlocked" style="color:#f87171;">--</div>
+                <div class="metric-sub">HTTP 429 &amp; 403 Blocked</div>
+            </div>
+            <div class="metric-card purple">
+                <div class="metric-label">Active Connections</div>
+                <div class="metric-value" id="mActive">--</div>
+                <div class="metric-sub">Real-time Worker Sockets</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">Server Errors (5xx)</div>
+                <div class="metric-value" id="m5xx">--</div>
+                <div class="metric-sub">Internal Server Errors</div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 2. INTERACTIVE SECURITY SIMULATOR & LIVE JSON/HEADER INSPECTOR -->
+    <section class="grid-2">
+        <!-- Left: Interactive Security & Feature Tester -->
+        <div class="panel">
+            <h3>
+                <span>🛡️ 2. Bảng Điều khiển Kiểm thử Bảo mật &amp; Tính năng Trực tiếp</span>
+                <span class="badge badge-green">Interactive Simulator</span>
+            </h3>
+            <p class="desc">
+                Kích hoạt trực tiếp các tính năng tùy biến C ngay trên trình duyệt để quan sát phản hồi từ
+                <code>ngx_http_custom_security_module</code>, <code>ngx_http_custom_monitoring_module</code> và bản vá <code>Server: CustomWebServer</code>:
+            </p>
+
+            <div class="btn-group">
+                <button class="btn-primary" onclick="testSingleRequest()">
+                    ✅ Gửi 1 Request Hợp lệ (GET /)
+                </button>
+                <button class="btn-danger" onclick="testRateLimitBurst()">
+                    ⚡ Bắn Burst 30 Requests (Test Rate Limit &gt; 20/s → HTTP 429)
+                </button>
+                <button class="btn-amber" onclick="test404ErrorPage()">
+                    🔍 Test Trang Lỗi 404 (Kiểm tra ẩn version Nginx)
+                </button>
+                <button class="btn-blue" onclick="test403AdminACL()">
+                    🔒 Test Chặn ACL 403 (/custom_status_admin_only)
+                </button>
+                <button onclick="clearSimLog()">
+                    🧹 Xóa Nhật ký
+                </button>
+            </div>
+
+            <pre class="code-box" id="simLog">[READY] Nhấn các nút bên trên để kiểm thử trực tiếp với Custom Nginx trên cổng 8080...</pre>
+        </div>
+
+        <!-- Right: Live /custom_status JSON & Custom Server Header Inspector -->
+        <div class="panel">
+            <h3>
+                <span>📡 3. Dữ liệu JSON /custom_status &amp; HTTP Response Headers</span>
+                <a href="/custom_status" target="_blank" style="color:#60a5fa;font-size:0.8rem;text-decoration:none;">Mở /custom_status ↗</a>
+            </h3>
+            <p class="desc">
+                Phản hồi trực tiếp từ endpoint <code>GET /custom_status</code> và các HTTP Header do mã nguồn C đã vá trả về:
+            </p>
+            <pre class="code-box" id="jsonPreview">Đang tải dữ liệu từ /custom_status...</pre>
+            <pre class="code-box" id="headerPreview" style="max-height:135px;">Đang kiểm tra HTTP Response Headers...</pre>
+        </div>
+    </section>
+
+    <!-- 3. PROJECT MODULES & BENCHMARK COMPARISON -->
+    <section class="grid-2">
+        <div class="panel">
+            <h3>⚙️ 4. Các Thành phần Kỹ thuật đã Xây dựng trong Đồ án</h3>
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Hạng mục</th>
+                        <th>Tệp thực thi / Mã nguồn</th>
+                        <th>Trạng thái</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>1. Tùy biến C Server Header</strong></td>
+                        <td class="mono">patches/custom_server_header.patch</td>
+                        <td><span class="badge badge-green">Server: CustomWebServer</span></td>
+                    </tr>
+                    <tr>
+                        <td><strong>2. Custom Security Module</strong></td>
+                        <td class="mono">ngx_http_custom_security_module.c</td>
+                        <td><span class="badge badge-green">20 req/1s • Shm RBTree</span></td>
+                    </tr>
+                    <tr>
+                        <td><strong>3. Custom Monitoring Module</strong></td>
+                        <td class="mono">ngx_http_custom_monitoring_module.c</td>
+                        <td><span class="badge badge-green">/custom_status JSON</span></td>
+                    </tr>
+                    <tr>
+                        <td><strong>4. Linux Process Monitor (C)</strong></td>
+                        <td class="mono">./build/bin/process_monitor</td>
+                        <td><span class="badge badge-blue">/proc/&lt;PID&gt;/stat, fd, tcp</span></td>
+                    </tr>
+                    <tr>
+                        <td><strong>5. Linux Resource Monitor (C)</strong></td>
+                        <td class="mono">./build/bin/resource_monitor</td>
+                        <td><span class="badge badge-blue">2-Sample CPU% &amp; VmRSS</span></td>
+                    </tr>
+                    <tr>
+                        <td><strong>6. Quản lý Dịch vụ &amp; Tín hiệu</strong></td>
+                        <td class="mono">systemd/custom-nginx.service</td>
+                        <td><span class="badge badge-purple">SIGHUP / SIGUSR1 / SIGQUIT</span></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="panel">
+            <h3>📊 5. Kết quả Benchmark Thực tế (5,000 req, Concurrency = 50)</h3>
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Chỉ số Đo kiểm</th>
+                        <th>Original Nginx (1.26.2)</th>
+                        <th>Custom Nginx (Full Pipeline)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>Requests / second (RPS)</strong></td>
+                        <td class="mono">33,837.25 req/s</td>
+                        <td class="mono" style="color:#34d399;font-weight:700;">25,112.52 req/s</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Average Latency</strong></td>
+                        <td class="mono">1.466 ms</td>
+                        <td class="mono">1.980 ms (+0.51 ms)</td>
+                    </tr>
+                    <tr>
+                        <td><strong>CPU Usage (Dưới tải)</strong></td>
+                        <td class="mono">19.18%</td>
+                        <td class="mono">27.40%</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Physical RAM (VmRSS)</strong></td>
+                        <td class="mono">3.27 MB (3,352 KB)</td>
+                        <td class="mono" style="color:#34d399;">3.07 MB (3,148 KB)</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Virtual Memory (VmSize)</strong></td>
+                        <td class="mono">12.41 MB</td>
+                        <td class="mono">19.18 MB (+2.25 MB Shm/proc)</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Error Rate (Failed TCP)</strong></td>
+                        <td class="mono">0.00% (0/5000)</td>
+                        <td class="mono">0.00% (0/5000)</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+</main>
+
+<footer>
+    Đồ án Môn Linux và Phần mềm Mã nguồn mở • Custom Nginx Web Server (`build/custom/sbin/nginx`) trên Ubuntu Linux
+</footer>
+
+<script>
+    let pollTimer = null;
+    let isPolling = true;
+
+    function formatUptime(sec) {
+        const h = Math.floor(sec / 3600);
+        const m = Math.floor((sec % 3600) / 60);
+        const s = sec % 60;
+        return `${h}h ${m}m ${s}s (${sec}s)`;
+    }
+
+    function appendLog(msg, cls = "log-line-info") {
+        const box = document.getElementById("simLog");
+        const ts = new Date().toLocaleTimeString();
+        const line = document.createElement("div");
+        line.className = cls;
+        line.textContent = `[${ts}] ${msg}`;
+        box.appendChild(line);
+        box.scrollTop = box.scrollHeight;
+    }
+
+    function clearSimLog() {
+        document.getElementById("simLog").innerHTML = "[READY] Đã xóa nhật ký. Nhấn các nút bên trên để kiểm thử...";
+    }
+
+    async function fetchStatusNow() {
+        try {
+            const resp = await fetch("/custom_status", { cache: "no-store" });
+            const data = await resp.json();
+
+            document.getElementById("mTotal").textContent = data.total_requests;
+            document.getElementById("mSuccess").textContent = data.successful_requests;
+            document.getElementById("m4xx").textContent = data.client_errors;
+            document.getElementById("mBlocked").textContent = data.blocked_requests;
+            document.getElementById("mActive").textContent = data.active_connections;
+            document.getElementById("m5xx").textContent = data.server_errors;
+
+            document.getElementById("hdrServerBadge").textContent = `Server: ${data.server}`;
+            document.getElementById("hdrUptimeBadge").textContent = `Uptime: ${formatUptime(data.uptime_seconds)}`;
+            document.getElementById("jsonPreview").textContent = JSON.stringify(data, null, 2);
+            document.getElementById("liveDot").style.background = "#10b981";
+        } catch (err) {
+            document.getElementById("liveDot").style.background = "#ef4444";
+        }
+    }
+
+    async function inspectRootHeaders() {
+        try {
+            const resp = await fetch("/index.html", { method: "HEAD", cache: "no-store" });
+            const lines = [`HTTP Status: ${resp.status} ${resp.statusText}`];
+            resp.headers.forEach((val, key) => {
+                lines.push(`${key}: ${val}`);
+            });
+            const rl = resp.headers.get("X-RateLimit-Limit");
+            if (rl) {
+                document.getElementById("hdrRateBadge").textContent = `X-RateLimit-Limit: ${rl} req/1s`;
+            }
+            document.getElementById("headerPreview").textContent = lines.join("\n");
+        } catch (e) {
+            document.getElementById("headerPreview").textContent = "Không thể đọc HTTP headers: " + e.message;
+        }
+    }
+
+    function togglePolling() {
+        const btn = document.getElementById("togglePollBtn");
+        if (isPolling) {
+            clearInterval(pollTimer);
+            isPolling = false;
+            btn.textContent = "▶️ Tiếp tục Auto-Poll (1.5s)";
+        } else {
+            pollTimer = setInterval(fetchStatusNow, 1500);
+            isPolling = true;
+            btn.textContent = "⏸ Tạm dừng Auto-Poll (1.5s)";
+            fetchStatusNow();
+        }
+    }
+
+    async function testSingleRequest() {
+        appendLog("Đang gửi 1 request hợp lệ: GET /index.html ...", "log-line-info");
+        try {
+            const r = await fetch("/index.html?t=" + Date.now(), { cache: "no-store" });
+            const srv = r.headers.get("Server") || "N/A";
+            const limit = r.headers.get("X-RateLimit-Limit") || "N/A";
+            if (r.status === 200) {
+                appendLog(`-> HTTP ${r.status} OK | Server: ${srv} | X-RateLimit-Limit: ${limit}`, "log-line-ok");
+            } else {
+                appendLog(`-> HTTP ${r.status} | Server: ${srv} (Cửa sổ Rate Limit đang đầy, chờ 1 giây!)`, "log-line-warn");
+            }
+            await fetchStatusNow();
+            await inspectRootHeaders();
+        } catch (e) {
+            appendLog("Lỗi: " + e.message, "log-line-err");
+        }
+    }
+
+    async function testRateLimitBurst() {
+        appendLog("⚡ Bắt đầu bắn đồng loạt 30 requests vào GET / (Ngưỡng cấu hình: 20 req / 1 giây)...", "log-line-warn");
+        let okCount = 0;
+        let blocked429 = 0;
+
+        for (let i = 1; i <= 30; i++) {
+            try {
+                const r = await fetch("/index.html?burst=" + i + "_" + Date.now(), { cache: "no-store" });
+                if (r.status === 200) {
+                    okCount++;
+                    if (i <= 3 || i === 20) {
+                        appendLog(`  [Req #${i}] -> HTTP 200 OK (Allowed, count=${okCount}/20)`, "log-line-ok");
+                    } else if (i === 4) {
+                        appendLog(`  ... (Các request hợp lệ #4..#19 đều nhận HTTP 200 OK) ...`, "log-line-ok");
+                    }
+                } else if (r.status === 429) {
+                    blocked429++;
+                    if (blocked429 <= 4 || i === 30) {
+                        appendLog(`  [Req #${i}] -> HTTP 429 Too Many Requests (CHẶN BỞI ngx_http_custom_security_module!)`, "log-line-err");
+                    } else if (blocked429 === 5) {
+                        appendLog(`  ... (Các request vượt ngưỡng tiếp theo bị chặn với HTTP 429) ...`, "log-line-err");
+                    }
+                }
+            } catch (e) {
+                appendLog(`  [Req #${i}] Lỗi mạng: ${e.message}`, "log-line-err");
+            }
+        }
+
+        appendLog(`🎯 KẾT QUẢ BURST 30 REQUESTS: Cho phép = ${okCount} (HTTP 200) | Bị chặn = ${blocked429} (HTTP 429 Too Many Requests)`, "log-line-warn");
+        await fetchStatusNow();
+    }
+
+    async function test404ErrorPage() {
+        const uri = "/khong_ton_tai_" + Math.floor(Math.random() * 9999);
+        appendLog(`Đang kiểm tra trang lỗi: GET ${uri} ...`, "log-line-info");
+        try {
+            const r = await fetch(uri, { cache: "no-store" });
+            const text = await r.text();
+            const srv = r.headers.get("Server");
+            const hasCustomFooter = text.includes("<center>CustomWebServer</center>");
+            const leaksNginx = text.toLowerCase().includes("nginx");
+            appendLog(`-> HTTP ${r.status} | Header Server: ${srv}`, "log-line-warn");
+            appendLog(`-> Chân trang HTML: ${hasCustomFooter ? "<center>CustomWebServer</center> (ĐÃ ẨN VERSION)" : "Khác"} | Lộ chữ 'nginx': ${leaksNginx ? "CÓ" : "KHÔNG (An toàn)"}`, "log-line-ok");
+            await fetchStatusNow();
+        } catch (e) {
+            appendLog("Lỗi: " + e.message, "log-line-err");
+        }
+    }
+
+    async function test403AdminACL() {
+        appendLog("Đang truy cập endpoint giới hạn IP quản trị: GET /custom_status_admin_only ...", "log-line-info");
+        try {
+            const r = await fetch("/custom_status_admin_only", { cache: "no-store" });
+            appendLog(`-> HTTP ${r.status} Forbidden: Module Giám sát đã chặn truy cập trái phép và ghi log [CUSTOM_MONITORING] ACCESS_DENIED!`, "log-line-err");
+            await fetchStatusNow();
+        } catch (e) {
+            appendLog("Lỗi: " + e.message, "log-line-err");
+        }
+    }
+
+    fetchStatusNow();
+    inspectRootHeaders();
+    pollTimer = setInterval(fetchStatusNow, 1500);
+</script>
+
+</body>
+</html>

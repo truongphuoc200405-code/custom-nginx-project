@@ -1,0 +1,48 @@
+# ==============================================================================
+# systemd Unit File: systemd/custom-nginx.service
+# Service Name: custom-nginx.service
+# Purpose: Manage isolated Custom Nginx Web Server (build/custom/sbin/nginx)
+#          with non-root execution (port 8080) and systemd security hardening.
+# ==============================================================================
+
+[Unit]
+Description=Custom Nginx Web Server (Security & Monitoring Modules on Ubuntu)
+Documentation=file:///home/truongphuoc/Desktop/custom-nginx-project/docs/systemd_integration.md
+After=network.target network-online.target
+Wants=network-online.target
+
+[Service]
+Type=forking
+WorkingDirectory=/home/truongphuoc/Desktop/custom-nginx-project
+PIDFile=/home/truongphuoc/Desktop/custom-nginx-project/logs/nginx.pid
+
+# Validate configuration before starting or reloading
+ExecStartPre=/home/truongphuoc/Desktop/custom-nginx-project/build/custom/sbin/nginx -p /home/truongphuoc/Desktop/custom-nginx-project -c /home/truongphuoc/Desktop/custom-nginx-project/config/nginx.conf -t
+ExecStart=/home/truongphuoc/Desktop/custom-nginx-project/build/custom/sbin/nginx -p /home/truongphuoc/Desktop/custom-nginx-project -c /home/truongphuoc/Desktop/custom-nginx-project/config/nginx.conf
+ExecReload=/home/truongphuoc/Desktop/custom-nginx-project/build/custom/sbin/nginx -p /home/truongphuoc/Desktop/custom-nginx-project -c /home/truongphuoc/Desktop/custom-nginx-project/config/nginx.conf -t
+ExecReload=/bin/kill -s HUP $MAINPID
+ExecStop=/bin/kill -s QUIT $MAINPID
+
+# Restart & Timeout Policies
+Restart=on-failure
+RestartSec=3s
+TimeoutStartSec=15s
+TimeoutStopSec=15s
+KillMode=mixed
+KillSignal=SIGQUIT
+SendSIGKILL=yes
+
+# Non-root User/Group & Security Hardening
+# Runs as unprivileged user truongphuoc (no root privileges required on port 8080).
+# When deployed to system-wide /etc/systemd/system/custom-nginx.service, uncomment User/Group:
+# User=truongphuoc
+# Group=truongphuoc
+NoNewPrivileges=true
+LockPersonality=true
+RestrictRealtime=true
+SystemCallArchitectures=native
+UMask=0027
+LimitNOFILE=65535
+
+[Install]
+WantedBy=default.target
