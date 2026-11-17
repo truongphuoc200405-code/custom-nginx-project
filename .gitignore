@@ -1,14 +1,10 @@
-# Ignore downloaded/extracted Nginx source archives and build artifacts
-build/
-logs/*.log
-logs/*.pid
-logs/*.lock
-source/nginx/
-source/nginx-*/
-source/*.tar.gz
-source/*.asc
-source/*.key
-*.o
-*.so
+# Ignore only temporary editor swap files and runtime PID/lock/temp directories
 *.swp
 *~
+logs/*.pid
+logs/*.lock
+client_body_temp/
+fastcgi_temp/
+proxy_temp/
+scgi_temp/
+uwsgi_temp/

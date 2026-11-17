@@ -1,0 +1,192 @@
+==============================================================================
+        BENCHMARK: ORIGINAL NGINX vs CUSTOM NGINX (Ubuntu Linux)             
+        Benchmark Tool : /home/truongphuoc/Desktop/custom-nginx-project/build/bin/ab                                           
+        Date           : 2026-11-15T03:59:29-08:00                                         
+==============================================================================
+
+>>> [1/4] Benchmarking ORIGINAL NGINX (/home/truongphuoc/Desktop/custom-nginx-project/build/original/sbin/nginx)...
+This is ApacheBench-compatible HTTP Benchmark (epoll C engine)
+
+Server Software:        nginx/1.26.2
+Server Hostname:        127.0.0.1
+Server Port:            8080
+
+Document Path:          /index.html
+Concurrency Level:      50
+Time taken for tests:   0.1552 seconds
+Complete requests:      5000
+Failed requests:        0
+Total transferred:      134365000 bytes
+Requests per second:    32214.31 [#/sec] (mean)
+Time per request:       1.535 [ms] (mean)
+Time per request:       0.031 [ms] (mean, across all concurrent requests)
+Transfer rate:          845405.34 [Kbytes/sec] received
+
+Percentage of the requests served within a certain time (ms)
+   50%    1.511 ms
+   66%    1.761 ms
+   75%    1.808 ms
+   80%    1.846 ms
+   90%    1.967 ms
+   95%    2.288 ms
+   98%    4.958 ms
+   99%    7.165 ms
+  100%   17.149 ms (longest request)
+--- Original Nginx Resource Telemetry Under Load ---
+======================================================================
+CUSTOM NGINX RESOURCE MONITOR
+======================================================================
+Target Binary      : /home/truongphuoc/Desktop/custom-nginx-project/build/original/sbin/nginx
+Installation Root  : /home/truongphuoc/Desktop/custom-nginx-project
+Sampling Interval  : 400 ms (CLK_TCK=100 Hz, Online CPUs=2)
+
+CPU Usage: 21.05%
+RSS Memory: 3.18 MB (3252 KB)
+Virtual Memory: 12.39 MB (12692 KB)
+Memory Usage: 0.08%
+System Memory: 3875.94 MB Total / 859.59 MB Available (212.62 MB Free)
+Process Count: 3 (1 Master + 2 Workers)
+Workers: 2
+Nginx Process State: RUNNING (Master: S (sleeping))
+System Uptime: 3 hours, 27 minutes, 7 seconds (12427.37 s)
+
+----------------------------------------------------------------------
+CPU TIME & SAMPLING TELEMETRY (/proc/stat & /proc/<PID>/stat)
+----------------------------------------------------------------------
+System CPU Jiffies (t1 -> t2) : 2385670 -> 2385746 (Delta = 76 jiffies)
+Nginx Total User Time (utime) : 1 ticks (0.01 s cumulative)
+Nginx Total Sys Time (stime)  : 7 ticks (0.07 s cumulative)
+Nginx Sample Delta Ticks      : 8 ticks over 400 ms
+
+----------------------------------------------------------------------
+PER-PROCESS RESOURCE BREAKDOWN (Master & Workers)
+----------------------------------------------------------------------
+PID      ROLE     STATE  UTIME(tk)  STIME(tk)  dTICKS   CPU(%)   RSS(KB)      VSIZE(KB)    MEM(%)  
+----------------------------------------------------------------------
+60146    MASTER   S      0          0          0        0.00     356          3932         0.01    
+60148    WORKER   S      1          2          3        7.89     1448         4380         0.04    
+60149    WORKER   S      0          5          5        13.16    1448         4380         0.04    
+======================================================================
+
+>>> [2/4] Benchmarking CUSTOM NGINX (/home/truongphuoc/Desktop/custom-nginx-project/build/custom/sbin/nginx) - Full Security + Monitoring Pipeline...
+This is ApacheBench-compatible HTTP Benchmark (epoll C engine)
+
+Server Software:        CustomWebServer
+Server Hostname:        127.0.0.1
+Server Port:            8080
+
+Document Path:          /index.html
+Concurrency Level:      50
+Time taken for tests:   0.1698 seconds
+Complete requests:      5000
+Failed requests:        0
+Total transferred:      134515000 bytes
+Requests per second:    29445.76 [#/sec] (mean)
+Time per request:       1.679 [ms] (mean)
+Time per request:       0.034 [ms] (mean, across all concurrent requests)
+Transfer rate:          773612.64 [Kbytes/sec] received
+
+Percentage of the requests served within a certain time (ms)
+   50%    1.644 ms
+   66%    1.768 ms
+   75%    1.850 ms
+   80%    1.894 ms
+   90%    2.070 ms
+   95%    2.210 ms
+   98%    2.472 ms
+   99%    2.746 ms
+  100%    3.571 ms (longest request)
+--- Custom Nginx Resource Telemetry Under Load ---
+======================================================================
+CUSTOM NGINX RESOURCE MONITOR
+======================================================================
+Target Binary      : /home/truongphuoc/Desktop/custom-nginx-project/build/custom/sbin/nginx
+Installation Root  : /home/truongphuoc/Desktop/custom-nginx-project
+Sampling Interval  : 400 ms (CLK_TCK=100 Hz, Online CPUs=2)
+
+CPU Usage: 26.32%
+RSS Memory: 3.41 MB (3492 KB)
+Virtual Memory: 19.17 MB (19628 KB)
+Memory Usage: 0.09%
+System Memory: 3875.94 MB Total / 859.12 MB Available (212.14 MB Free)
+Process Count: 3 (1 Master + 2 Workers)
+Workers: 2
+Nginx Process State: RUNNING (Master: S (sleeping))
+System Uptime: 3 hours, 27 minutes, 9 seconds (12429.84 s)
+
+----------------------------------------------------------------------
+CPU TIME & SAMPLING TELEMETRY (/proc/stat & /proc/<PID>/stat)
+----------------------------------------------------------------------
+System CPU Jiffies (t1 -> t2) : 2386139 -> 2386215 (Delta = 76 jiffies)
+Nginx Total User Time (utime) : 0 ticks (0.00 s cumulative)
+Nginx Total Sys Time (stime)  : 10 ticks (0.10 s cumulative)
+Nginx Sample Delta Ticks      : 10 ticks over 400 ms
+
+----------------------------------------------------------------------
+PER-PROCESS RESOURCE BREAKDOWN (Master & Workers)
+----------------------------------------------------------------------
+PID      ROLE     STATE  UTIME(tk)  STIME(tk)  dTICKS   CPU(%)   RSS(KB)      VSIZE(KB)    MEM(%)  
+----------------------------------------------------------------------
+60175    MASTER   S      0          0          0        0.00     364          6244         0.01    
+60177    WORKER   S      0          6          6        15.79    1564         6692         0.04    
+60178    WORKER   S      0          4          4        10.53    1564         6692         0.04    
+======================================================================
+
+>>> [3/4] Benchmarking CUSTOM NGINX - Rate-Limit Flood Enforcement (/flood_test, limit=20/1s)...
+This is ApacheBench-compatible HTTP Benchmark (epoll C engine)
+
+Server Software:        CustomWebServer
+Server Hostname:        127.0.0.1
+Server Port:            8080
+
+Document Path:          /flood_test
+Concurrency Level:      25
+Time taken for tests:   0.0505 seconds
+Complete requests:      1000
+Failed requests:        0
+Non-2xx responses:      1000
+Total transferred:      356000 bytes
+Requests per second:    19805.60 [#/sec] (mean)
+Time per request:       1.149 [ms] (mean)
+Time per request:       0.050 [ms] (mean, across all concurrent requests)
+Transfer rate:          6885.54 [Kbytes/sec] received
+
+Percentage of the requests served within a certain time (ms)
+   50%    0.886 ms
+   66%    0.983 ms
+   75%    1.070 ms
+   80%    1.216 ms
+   90%    1.743 ms
+   95%    2.740 ms
+   98%    5.204 ms
+   99%    5.358 ms
+  100%    7.002 ms (longest request)
+
+>>> [4/4] Benchmarking CUSTOM NGINX - Monitoring Endpoint (/custom_status)...
+This is ApacheBench-compatible HTTP Benchmark (epoll C engine)
+
+Server Software:        CustomWebServer
+Server Hostname:        127.0.0.1
+Server Port:            8080
+
+Document Path:          /custom_status
+Concurrency Level:      25
+Time taken for tests:   0.0767 seconds
+Complete requests:      2000
+Failed requests:        0
+Total transferred:      785858 bytes
+Requests per second:    26060.53 [#/sec] (mean)
+Time per request:       0.945 [ms] (mean)
+Time per request:       0.038 [ms] (mean, across all concurrent requests)
+Transfer rate:          9999.94 [Kbytes/sec] received
+
+Percentage of the requests served within a certain time (ms)
+   50%    0.710 ms
+   66%    0.783 ms
+   75%    0.836 ms
+   80%    0.889 ms
+   90%    1.159 ms
+   95%    1.916 ms
+   98%    4.860 ms
+   99%    8.117 ms
+  100%    9.925 ms (longest request)
